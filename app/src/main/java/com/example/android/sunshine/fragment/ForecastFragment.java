@@ -56,18 +56,14 @@ public class ForecastFragment extends Fragment {
 
         ListView forecastListView = (ListView) rootView.findViewById(R.id.listview_forecast);
 
-        String[] fakeDataList = {"Today - Sunny - 20/26 ºC",
-                "Tomorrow - Cloudy - 17/19 ºC",
-                "Monday - Foggy - 16/19 ºC",
-                "Tuesday - Cloudy - 17/19 ºC",
-                "Wednesday - Rain - 14/19 ºC",
-                "Thursday - Sunny - 19/24 ºC",
-                "Friday - Sunny - 21/27 ºC"};
+        String[] fakeDataList = {"No information to show"};
 
         List<String> weekForecast = new ArrayList<>(Arrays.asList(fakeDataList));
 
         mForecastAdapter = new ArrayAdapter<>(getActivity(), R.layout.list_item_forecast, R.id.list_item_forecast_textview, weekForecast);
         forecastListView.setAdapter(mForecastAdapter);
+
+        new FetchWeatherTask().execute("3449433");
 
         return rootView;
     }
