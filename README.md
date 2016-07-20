@@ -1,3 +1,5 @@
+This is a fork of the [Udacity's Sunshine app](https://github.com/udacity/Sunshine)
+
 Sunshine
 ========
 
