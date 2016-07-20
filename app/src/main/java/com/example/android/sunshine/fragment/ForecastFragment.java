@@ -1,5 +1,6 @@
 package com.example.android.sunshine.fragment;
 
+import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -12,9 +13,11 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
+import com.example.android.sunshine.activity.DetailActivity;
 import com.example.android.sunshine.app.R;
 
 import org.json.JSONArray;
@@ -54,7 +57,7 @@ public class ForecastFragment extends Fragment {
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_main, container, false);
 
-        ListView forecastListView = (ListView) rootView.findViewById(R.id.listview_forecast);
+        final ListView forecastListView = (ListView) rootView.findViewById(R.id.listview_forecast);
 
         String[] fakeDataList = {"No information to show"};
 
@@ -64,6 +67,17 @@ public class ForecastFragment extends Fragment {
         forecastListView.setAdapter(mForecastAdapter);
 
         new FetchWeatherTask().execute("3449433");
+
+        forecastListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                String forecast = mForecastAdapter.getItem(i);
+
+                Intent intent = new Intent(getActivity(), DetailActivity.class);
+                intent.putExtra(Intent.EXTRA_TEXT, forecast);
+                startActivity(intent);
+            }
+        });
 
         return rootView;
     }
@@ -212,7 +226,6 @@ public class ForecastFragment extends Fragment {
                         .appendPath("daily")
                         .appendQueryParameter("id", params[0])
                         .appendQueryParameter("mode", "json")
-                        .appendQueryParameter("mode", "relevance")
                         .appendQueryParameter("units", "metric")
                         .appendQueryParameter("cnt", "7")
                         .appendQueryParameter("APPID", "549940e8583bb091610f20cecbdf21c2");
