@@ -21,7 +21,7 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 import com.example.android.sunshine.activity.DetailActivity;
-import com.example.android.sunshine.app.R;
+import com.example.android.sunshine.R;
 
 import org.json.JSONArray;
 import org.json.JSONException;

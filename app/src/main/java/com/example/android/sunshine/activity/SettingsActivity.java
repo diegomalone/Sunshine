@@ -11,7 +11,7 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
 
-import com.example.android.sunshine.app.R;
+import com.example.android.sunshine.R;
 
 /**
  * A {@link PreferenceActivity} that presents a set of application settings. On

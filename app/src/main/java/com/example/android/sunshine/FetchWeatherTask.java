@@ -25,7 +25,7 @@ import android.text.format.Time;
 import android.util.Log;
 import android.widget.ArrayAdapter;
 
-import com.example.android.sunshine.app.R;
+import com.example.android.sunshine.R;
 import com.example.android.sunshine.data.WeatherContract;
 
 import org.json.JSONArray;
