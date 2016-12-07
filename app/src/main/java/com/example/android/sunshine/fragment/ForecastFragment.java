@@ -1,6 +1,5 @@
 package com.example.android.sunshine.fragment;
 
-import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -22,7 +21,7 @@ import com.example.android.sunshine.ForecastAdapter;
 import com.example.android.sunshine.R;
 import com.example.android.sunshine.Utility;
 import com.example.android.sunshine.data.WeatherContract;
-import com.example.android.sunshine.service.SunshineService;
+import com.example.android.sunshine.sync.SunshineSyncAdapter;
 
 /**
  * Created by Malone on 03/07/2016.
@@ -175,10 +174,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     }
 
     private void updateWeather() {
-        Intent intent = new Intent(getActivity(), SunshineService.class);
-        intent.putExtra(SunshineService.LOCATION_QUERY_EXTRA,
-                Utility.getPreferredLocation(getActivity()));
-        getActivity().startService(intent);
+        SunshineSyncAdapter.syncImmediately(getActivity());
     }
 
     @Override

@@ -1,14 +1,23 @@
-package com.example.android.sunshine.service;
+package com.example.android.sunshine.sync;
 
-import android.app.IntentService;
+import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.content.AbstractThreadedSyncAdapter;
+import android.content.ContentProviderClient;
+import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
-import android.content.Intent;
+import android.content.Context;
+import android.content.SyncResult;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.text.format.Time;
 import android.util.Log;
 
+import com.example.android.sunshine.R;
+import com.example.android.sunshine.BuildConfig;
+import com.example.android.sunshine.Utility;
 import com.example.android.sunshine.data.WeatherContract;
 
 import org.json.JSONArray;
@@ -23,23 +32,17 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Vector;
 
-/**
- * Created by Malone on 22/11/2016.
- */
+public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
+    public final String LOG_TAG = SunshineSyncAdapter.class.getSimpleName();
 
-public class SunshineService extends IntentService {
-
-    public static final String LOCATION_QUERY_EXTRA = "lqe";
-    private final String LOG_TAG = SunshineService.class.getSimpleName();
-
-    public SunshineService() {
-        super("Sunshine");
+    public SunshineSyncAdapter(Context context, boolean autoInitialize) {
+        super(context, autoInitialize);
     }
 
     @Override
-    protected void onHandleIntent(Intent intent) {
-
-        String locationQuery = intent.getStringExtra(LOCATION_QUERY_EXTRA);
+    public void onPerformSync(Account account, Bundle extras, String authority, ContentProviderClient provider, SyncResult syncResult) {
+        Log.d(LOG_TAG, "Starting sync");
+        String locationQuery = Utility.getPreferredLocation(getContext());
 
         // These two need to be declared outside the try/catch
         // so that they can be closed in the finally block.
@@ -63,13 +66,14 @@ public class SunshineService extends IntentService {
             final String FORMAT_PARAM = "mode";
             final String UNITS_PARAM = "units";
             final String DAYS_PARAM = "cnt";
+            final String APPID_PARAM = "APPID";
 
             Uri builtUri = Uri.parse(FORECAST_BASE_URL).buildUpon()
                     .appendQueryParameter(QUERY_PARAM, locationQuery)
                     .appendQueryParameter(FORMAT_PARAM, format)
                     .appendQueryParameter(UNITS_PARAM, units)
                     .appendQueryParameter(DAYS_PARAM, Integer.toString(numDays))
-                    .appendQueryParameter("APPID", "549940e8583bb091610f20cecbdf21c2")
+                    .appendQueryParameter(APPID_PARAM, BuildConfig.OPEN_WEATHER_MAP_API_KEY)
                     .build();
 
             URL url = new URL(builtUri.toString());
@@ -124,59 +128,9 @@ public class SunshineService extends IntentService {
     }
 
     /**
-     * Helper method to handle insertion of a new location in the weather database.
-     *
-     * @param locationSetting The location string used to request updates from the server.
-     * @param cityName        A human-readable city name, e.g "Mountain View"
-     * @param lat             the latitude of the city
-     * @param lon             the longitude of the city
-     * @return the row ID of the added location.
-     */
-    long addLocation(String locationSetting, String cityName, double lat, double lon) {
-        long locationId;
-
-        // First, check if the location with this city name exists in the db
-        Cursor locationCursor = this.getContentResolver().query(
-                WeatherContract.LocationEntry.CONTENT_URI,
-                new String[]{WeatherContract.LocationEntry._ID},
-                WeatherContract.LocationEntry.COLUMN_LOCATION_SETTING + " = ?",
-                new String[]{locationSetting},
-                null);
-
-        if (locationCursor.moveToFirst()) {
-            int locationIdIndex = locationCursor.getColumnIndex(WeatherContract.LocationEntry._ID);
-            locationId = locationCursor.getLong(locationIdIndex);
-        } else {
-            // Now that the content provider is set up, inserting rows of data is pretty simple.
-            // First create a ContentValues object to hold the data you want to insert.
-            ContentValues locationValues = new ContentValues();
-
-            // Then add the data, along with the corresponding name of the data type,
-            // so the content provider knows what kind of value is being inserted.
-            locationValues.put(WeatherContract.LocationEntry.COLUMN_CITY_NAME, cityName);
-            locationValues.put(WeatherContract.LocationEntry.COLUMN_LOCATION_SETTING, locationSetting);
-            locationValues.put(WeatherContract.LocationEntry.COLUMN_COORD_LAT, lat);
-            locationValues.put(WeatherContract.LocationEntry.COLUMN_COORD_LONG, lon);
-
-            // Finally, insert location data into the database.
-            Uri insertedUri = this.getContentResolver().insert(
-                    WeatherContract.LocationEntry.CONTENT_URI,
-                    locationValues
-            );
-
-            // The resulting URI contains the ID for the row.  Extract the locationId from the Uri.
-            locationId = ContentUris.parseId(insertedUri);
-        }
-
-        locationCursor.close();
-        // Wait, that worked?  Yes!
-        return locationId;
-    }
-
-    /**
      * Take the String representing the complete forecast in JSON Format and
      * pull out the data we need to construct the Strings needed for the wireframes.
-     * <p>
+     *
      * Fortunately parsing is easy:  constructor takes the JSON string and converts it
      * into an Object hierarchy for us.
      */
@@ -249,7 +203,7 @@ public class SunshineService extends IntentService {
             // now we work exclusively in UTC
             dayTime = new Time();
 
-            for (int i = 0; i < weatherArray.length(); i++) {
+            for(int i = 0; i < weatherArray.length(); i++) {
                 // These are the values that will be collected.
                 long dateTime;
                 double pressure;
@@ -267,7 +221,7 @@ public class SunshineService extends IntentService {
                 JSONObject dayForecast = weatherArray.getJSONObject(i);
 
                 // Cheating to convert this to UTC time, which is what we want anyhow
-                dateTime = dayTime.setJulianDay(julianStartDay + i);
+                dateTime = dayTime.setJulianDay(julianStartDay+i);
 
                 pressure = dayForecast.getDouble(OWM_PRESSURE);
                 humidity = dayForecast.getInt(OWM_HUMIDITY);
@@ -308,13 +262,114 @@ public class SunshineService extends IntentService {
             if ( cVVector.size() > 0 ) {
                 ContentValues[] cvArray = new ContentValues[cVVector.size()];
                 cVVector.toArray(cvArray);
-                inserted = this.getContentResolver().bulkInsert(WeatherContract.WeatherEntry.CONTENT_URI, cvArray);
+                getContext().getContentResolver().bulkInsert(WeatherContract.WeatherEntry.CONTENT_URI, cvArray);
             }
 
-            Log.d(LOG_TAG, "FetchWeather Complete. " + inserted + " Inserted");
+            Log.d(LOG_TAG, "Sync Complete. " + cVVector.size() + " Inserted");
+
         } catch (JSONException e) {
             Log.e(LOG_TAG, e.getMessage(), e);
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Helper method to handle insertion of a new location in the weather database.
+     *
+     * @param locationSetting The location string used to request updates from the server.
+     * @param cityName A human-readable city name, e.g "Mountain View"
+     * @param lat the latitude of the city
+     * @param lon the longitude of the city
+     * @return the row ID of the added location.
+     */
+    long addLocation(String locationSetting, String cityName, double lat, double lon) {
+        long locationId;
+
+        // First, check if the location with this city name exists in the db
+        Cursor locationCursor = getContext().getContentResolver().query(
+                WeatherContract.LocationEntry.CONTENT_URI,
+                new String[]{WeatherContract.LocationEntry._ID},
+                WeatherContract.LocationEntry.COLUMN_LOCATION_SETTING + " = ?",
+                new String[]{locationSetting},
+                null);
+
+        if (locationCursor.moveToFirst()) {
+            int locationIdIndex = locationCursor.getColumnIndex(WeatherContract.LocationEntry._ID);
+            locationId = locationCursor.getLong(locationIdIndex);
+        } else {
+            // Now that the content provider is set up, inserting rows of data is pretty simple.
+            // First create a ContentValues object to hold the data you want to insert.
+            ContentValues locationValues = new ContentValues();
+
+            // Then add the data, along with the corresponding name of the data type,
+            // so the content provider knows what kind of value is being inserted.
+            locationValues.put(WeatherContract.LocationEntry.COLUMN_CITY_NAME, cityName);
+            locationValues.put(WeatherContract.LocationEntry.COLUMN_LOCATION_SETTING, locationSetting);
+            locationValues.put(WeatherContract.LocationEntry.COLUMN_COORD_LAT, lat);
+            locationValues.put(WeatherContract.LocationEntry.COLUMN_COORD_LONG, lon);
+
+            // Finally, insert location data into the database.
+            Uri insertedUri = getContext().getContentResolver().insert(
+                    WeatherContract.LocationEntry.CONTENT_URI,
+                    locationValues
+            );
+
+            // The resulting URI contains the ID for the row.  Extract the locationId from the Uri.
+            locationId = ContentUris.parseId(insertedUri);
+        }
+
+        locationCursor.close();
+        // Wait, that worked?  Yes!
+        return locationId;
+    }
+
+    /**
+     * Helper method to have the sync adapter sync immediately
+     * @param context The context used to access the account service
+     */
+    public static void syncImmediately(Context context) {
+        Bundle bundle = new Bundle();
+        bundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+        bundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+        ContentResolver.requestSync(getSyncAccount(context),
+                context.getString(R.string.content_authority), bundle);
+    }
+
+    /**
+     * Helper method to get the fake account to be used with SyncAdapter, or make a new one
+     * if the fake account doesn't exist yet.  If we make a new account, we call the
+     * onAccountCreated method so we can initialize things.
+     *
+     * @param context The context used to access the account service
+     * @return a fake account.
+     */
+    public static Account getSyncAccount(Context context) {
+        // Get an instance of the Android account manager
+        AccountManager accountManager =
+                (AccountManager) context.getSystemService(Context.ACCOUNT_SERVICE);
+
+        // Create the account type and default account
+        Account newAccount = new Account(
+                context.getString(R.string.app_name), context.getString(R.string.sync_account_type));
+
+        // If the password doesn't exist, the account doesn't exist
+        if ( null == accountManager.getPassword(newAccount) ) {
+
+        /*
+         * Add the account and account type, no password or user data
+         * If successful, return the Account object, otherwise report an error.
+         */
+            if (!accountManager.addAccountExplicitly(newAccount, "", null)) {
+                return null;
+            }
+            /*
+             * If you don't set android:syncable="true" in
+             * in your <provider> element in the manifest,
+             * then call ContentResolver.setIsSyncable(account, AUTHORITY, 1)
+             * here.
+             */
+
+        }
+        return newAccount;
     }
 }
