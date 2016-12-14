@@ -42,14 +42,14 @@ public class Utility {
                 .equals(context.getString(R.string.pref_units_metric));
     }
 
-    public static String formatTemperature(Context context, double temperature, boolean isMetric) {
-        double temp;
-        if ( !isMetric ) {
-            temp = 9*temperature/5+32;
-        } else {
-            temp = temperature;
+    public static String formatTemperature(Context context, double temperature) {
+        // Data stored in Celsius by default.  If user prefers to see in Fahrenheit, convert
+        // the values here.
+        String suffix = "\u00B0";
+        if (!isMetric(context)) {
+            temperature = (temperature * 1.8) + 32;
         }
-        return context.getString(R.string.format_temperature, temp);
+        return String.format(context.getString(R.string.format_temperature), temperature);
     }
 
     public static String getFormattedWind(Context context, float windSpeed, float degrees) {
@@ -98,7 +98,7 @@ public class Utility {
      * Helper method to convert the database representation of the date into something to display
      * to users.  As classy and polished a user experience as "20140102" is, we can do better.
      *
-     * @param context Context to use for resource localization
+     * @param context      Context to use for resource localization
      * @param dateInMillis The date in milliseconds
      * @return a user-friendly representation of the date.
      */
@@ -124,7 +124,7 @@ public class Utility {
                     formatId,
                     today,
                     getFormattedMonthDay(context, dateInMillis));
-        } else if ( julianDay < currentJulianDay + 7 ) {
+        } else if (julianDay < currentJulianDay + 7) {
             // If the input date is less than a week in the future, just return the day name.
             return getDayName(context, dateInMillis);
         } else {
@@ -138,7 +138,7 @@ public class Utility {
      * Given a day, returns just the name to use for that day.
      * E.g "today", "tomorrow", "wednesday".
      *
-     * @param context Context to use for resource localization
+     * @param context      Context to use for resource localization
      * @param dateInMillis The date in milliseconds
      * @return
      */
@@ -152,7 +152,7 @@ public class Utility {
         int currentJulianDay = Time.getJulianDay(System.currentTimeMillis(), t.gmtoff);
         if (julianDay == currentJulianDay) {
             return context.getString(R.string.today);
-        } else if ( julianDay == currentJulianDay +1 ) {
+        } else if (julianDay == currentJulianDay + 1) {
             return context.getString(R.string.tomorrow);
         } else {
             Time time = new Time();
@@ -165,12 +165,13 @@ public class Utility {
 
     /**
      * Converts db date format to the format "Month day", e.g "June 24".
-     * @param context Context to use for resource localization
+     *
+     * @param context      Context to use for resource localization
      * @param dateInMillis The db formatted date string, expected to be of the form specified
-     *                in Utility.DATE_FORMAT
+     *                     in Utility.DATE_FORMAT
      * @return The day in the form of a string formatted "December 6"
      */
-    public static String getFormattedMonthDay(Context context, long dateInMillis ) {
+    public static String getFormattedMonthDay(Context context, long dateInMillis) {
         Time time = new Time();
         time.setToNow();
         SimpleDateFormat dbDateFormat = new SimpleDateFormat(Utility.DATE_FORMAT);
@@ -182,6 +183,7 @@ public class Utility {
     /**
      * Helper method to provide the icon resource id according to the weather condition id returned
      * by the OpenWeatherMap call.
+     *
      * @param weatherId from OpenWeatherMap API response
      * @return resource id for the corresponding icon. -1 if no relation is found.
      */
@@ -217,6 +219,7 @@ public class Utility {
     /**
      * Helper method to provide the art resource id according to the weather condition id returned
      * by the OpenWeatherMap call.
+     *
      * @param weatherId from OpenWeatherMap API response
      * @return resource id for the corresponding image. -1 if no relation is found.
      */
